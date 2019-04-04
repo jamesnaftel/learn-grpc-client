@@ -5,20 +5,22 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	pb "github.com/jamesnaftel/learn-grpc/api"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	//TODO: create subcommands to get full help (not critical for learning GRPC 😐)
 	host := flag.String("host", "localhost", "Server host")
 	port := flag.String("port", "3001", "Server port")
+
 	flag.Parse()
 
-	//todo: change this code to be CLI driven once done tinkering
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%s", *host, *port), grpc.WithInsecure())
 	if err != nil {
-		fmt.Printf("Error dialing %s: %v\n", fmt.Sprintf("%s:%s", *host, *port), err)
+		fmt.Fprintf(os.Stderr, "Error dialing %s: %v\n", fmt.Sprintf("%s:%s", *host, *port), err)
 		os.Exit(1)
 	}
 	defer conn.Close()
@@ -26,31 +28,49 @@ func main() {
 	c := pb.NewPodcastsClient(conn)
 	ctx := context.Background()
 
-	//Request a specific podcast - return empty
-	req := pb.PodcastRequest{Name: "SE Daily"}
-	podcast, err := c.GetPodcast(ctx, &req)
-	if err != nil {
-		fmt.Printf("%v\n", err)
+	switch cmd := flag.Arg(0); cmd {
+	case "list":
+		listPodcasts(ctx, c)
+	case "query":
+		queryPodcast(ctx, c, flag.Arg(1))
+	case "add":
+		fmt.Fprintf(os.Stdout, "TODO\n")
+
+	default:
+		flag.Usage()
+		os.Exit(0)
 	}
+}
 
-	fmt.Printf("GetPodcast: %s\n", podcast.Podcast.GetName())
-
-	//Request a specific podcast
-	req = pb.PodcastRequest{Name: "SE Daily: GRPC"}
-	podcast, err = c.GetPodcast(ctx, &req)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-	}
-
-	fmt.Printf("GetPodcast: %s\n", podcast.Podcast.String())
-
+func listPodcasts(ctx context.Context, client pb.PodcastsClient) {
 	empty := pb.Empty{}
-	podcasts, err := c.GetPodcasts(ctx, &empty)
+	podcasts, err := client.GetPodcasts(ctx, &empty)
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("GetPodcasts: %v\n", podcasts)
+	printOutput(podcasts.GetPodcasts())
+}
+func queryPodcast(ctx context.Context, client pb.PodcastsClient, name string) {
+	//Request a specific podcast - return empty
+	req := pb.PodcastRequest{Name: name}
+	podcast, err := client.GetPodcast(ctx, &req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return
+	}
 
+	printOutput([]*pb.Podcast{podcast.GetPodcast()})
+}
+
+func printOutput(podcasts []*pb.Podcast) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
+	fmt.Fprintf(w, "Name\tAuthor\tLength\n")
+	fmt.Fprintf(w, "------------------\t------------------\t----------\n")
+	for _, val := range podcasts {
+		fmt.Fprintf(w, "%s\t%s\t%d\n", val.GetName(), val.GetAuthor(), val.Length)
+	}
+
+	w.Flush()
 }
