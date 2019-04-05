@@ -4,8 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	pb "github.com/jamesnaftel/learn-grpc/api"
 	"google.golang.org/grpc"
@@ -26,13 +28,12 @@ func main() {
 	defer conn.Close()
 
 	c := pb.NewPodcastsClient(conn)
-	ctx := context.Background()
 
 	switch cmd := flag.Arg(0); cmd {
 	case "list":
-		listPodcasts(ctx, c)
+		listPodcasts(c)
 	case "query":
-		queryPodcast(ctx, c, flag.Arg(1))
+		queryPodcast(c, flag.Arg(1))
 	case "add":
 		fmt.Fprintf(os.Stdout, "TODO\n")
 
@@ -42,18 +43,35 @@ func main() {
 	}
 }
 
-func listPodcasts(ctx context.Context, client pb.PodcastsClient) {
+func listPodcasts(client pb.PodcastsClient) {
 	empty := pb.Empty{}
-	podcasts, err := client.GetPodcasts(ctx, &empty)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream, err := client.GetPodcasts(ctx, &empty)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	printOutput(podcasts.GetPodcasts())
+	p := []*pb.Podcast{}
+	for {
+		podcast, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
+		p = append(p, podcast)
+	}
+
+	printOutput(p)
 }
-func queryPodcast(ctx context.Context, client pb.PodcastsClient, name string) {
-	//Request a specific podcast - return empty
+func queryPodcast(client pb.PodcastsClient, name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	req := pb.PodcastRequest{Name: name}
 	podcast, err := client.GetPodcast(ctx, &req)
 	if err != nil {
