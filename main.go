@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -35,12 +36,31 @@ func main() {
 	case "query":
 		queryPodcast(c, flag.Arg(1))
 	case "add":
-		fmt.Fprintf(os.Stdout, "TODO\n")
-
+		addPodcast(c, flag.Arg(1))
 	default:
 		flag.Usage()
 		os.Exit(0)
 	}
+}
+
+func addPodcast(client pb.PodcastsClient, in string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	podcast := pb.Podcast{}
+	err := json.Unmarshal([]byte(in), &podcast)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unmarshal error: %v\n", err)
+		return
+	}
+
+	resp, err := client.AddPodcast(ctx, &podcast)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "add error: %v\n", err)
+		return
+	}
+
+	printOutput([]*pb.Podcast{resp})
 }
 
 func listPodcasts(client pb.PodcastsClient) {
