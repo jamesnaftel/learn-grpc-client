@@ -39,7 +39,6 @@ func main() {
 		addPodcast(c, flag.Arg(1))
 	default:
 		flag.Usage()
-		os.Exit(0)
 	}
 }
 
@@ -54,7 +53,7 @@ func addPodcast(client pb.PodcastsClient, in string) {
 		return
 	}
 
-	resp, err := client.AddPodcast(ctx, &podcast)
+	resp, err := client.Add(ctx, &podcast)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "add error: %v\n", err)
 		return
@@ -68,7 +67,7 @@ func listPodcasts(client pb.PodcastsClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	stream, err := client.GetPodcasts(ctx, &empty)
+	stream, err := client.List(ctx, &empty)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -92,14 +91,14 @@ func queryPodcast(client pb.PodcastsClient, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req := pb.PodcastRequest{Name: name}
-	podcast, err := client.GetPodcast(ctx, &req)
+	req := pb.ByNameRequest{Name: name}
+	podcast, err := client.GetByName(ctx, &req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
 
-	printOutput([]*pb.Podcast{podcast.GetPodcast()})
+	printOutput([]*pb.Podcast{podcast})
 }
 
 func printOutput(podcasts []*pb.Podcast) {
