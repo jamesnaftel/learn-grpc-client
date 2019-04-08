@@ -1,4 +1,4 @@
 #!/bin/sh
 
-./client add "{\"name\":\"james\", \"author\":\"test\", \"length\": 55}"
+./learn-grpc-client add "{\"name\":\"james\", \"author\":\"test\", \"length\": 55}"
 
