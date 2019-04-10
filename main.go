@@ -110,4 +110,6 @@ func printOutput(podcasts []*pb.Podcast) {
 	}
 
 	w.Flush()
+
+	fmt.Println()
 }
